@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>室内環境モニター</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f0f2f5; text-align: center; padding: 50px; }
+        .card { background: white; padding: 30px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        .value { font-size: 2.5em; font-weight: bold; margin: 20px 0; }
+        .co2 { color: #2ecc71; }
+        .warning { color: #e74c3c; animation: blink 1s infinite alternate; }
+        .meta { color: #7f8c8d; font-size: 0.9em; }
+        @keyframes blink { from { opacity: 1; } to { opacity: 0.5; } }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>現在の室内環境</h1>
+        <p class="meta">最終更新: {{ data.timestamp }}</p>
+        
+        <div class="value {% if data.co2 != '-' and data.co2|int >= 1000 %}warning{% else %}co2{% endif %}">
+            CO2: {{ data.co2 }} ppm
+        </div>
+        
+        <div class="value" style="color: #3498db;">
+            気温: {{ data.temp }} °C
+        </div>
+        
+        <div class="value" style="color: #9b59b6;">
+            湿度: {{ data.hum }} %
+        </div>
+    </div>
+</body>
+</html>
