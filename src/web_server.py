@@ -1,41 +1,66 @@
 import os
 import csv
+from datetime import datetime, timedelta
 from flask import Flask, render_template
 
 app = Flask(__name__)
 
-# CSVファイルのパス
-LOG_FILE = os.path.join(os.path.dirname(__file__), '../data/env_log.csv')
+DATA_DIR = os.path.join(os.path.dirname(__file__), '../data')
 
-def get_latest_data():
-    """CSVファイルから最新の1行を取得する関数"""
-    if not os.path.exists(LOG_FILE):
-        return {"timestamp": "データなし", "co2": "-", "temp": "-", "hum": "-"}
-    
+def read_csv_rows(file_path):
+    """指定されたCSVファイルからヘッダーを除いたデータ行を返す"""
+    if not os.path.exists(file_path):
+        return []
     try:
-        with open(LOG_FILE, mode='r') as f:
+        with open(file_path, mode='r') as f:
             reader = csv.reader(f)
-            rows = list(reader)
-            if len(rows) > 1:  # ヘッダー以外のデータがある場合
-                latest = rows[-1]  # 最後の行を取得
-                return {
-                    "timestamp": latest[0],
-                    "co2": latest[1],
-                    "temp": latest[2],
-                    "hum": latest[3]
-                }
+            next(reader) # ヘッダーをスキップ
+            return list(reader)
     except Exception as e:
-        print(f"データ読み込みエラー: {e}")
-        
-    return {"timestamp": "エラー", "co2": "-", "temp": "-", "hum": "-"}
+        print(f"ファイル読み込みエラー ({file_path}): {e}")
+        return []
+
+def get_env_data():
+    """今日と昨日のCSVから直近のデータを取得する"""
+    now = datetime.now()
+    today_str = now.strftime("%Y-%m-%d")
+    yesterday_str = (now - timedelta(days=1)).strftime("%Y-%m-%d")
+    
+    today_file = os.path.join(DATA_DIR, f"env_log_{today_str}.csv")
+    yesterday_file = os.path.join(DATA_DIR, f"env_log_{yesterday_str}.csv")
+    
+    # 今日と昨日のデータをそれぞれ読み込む
+    today_rows = read_csv_rows(today_file)
+    yesterday_rows = read_csv_rows(yesterday_file)
+    
+    # 2日分のデータを結合
+    all_rows = yesterday_rows + today_rows
+    
+    # 1件もデータがない場合のフォールバック
+    if not all_rows:
+        return {"latest": {"timestamp": "データなし", "co2": "-", "temp": "-", "hum": "-"}, "history": []}
+    
+    # 最新の1件を取得
+    latest = all_rows[-1]
+    latest_data = {
+        "timestamp": latest[0],
+        "co2": latest[1],
+        "temp": latest[2],
+        "hum": latest[3]
+    }
+    
+    # グラフ用に直近120件（過去2時間分）を抽出
+    history_data = all_rows[-120:]
+    
+    return {
+        "latest": latest_data,
+        "history": history_data
+    }
 
 @app.route('/')
 def index():
-    # 最新のセンサーデータを取得
-    data = get_latest_data()
-    # HTMLテンプレートにデータを渡して表示
+    data = get_env_data()
     return render_template('index.html', data=data)
 
 if __name__ == '__main__':
-    # 0.0.0.0 で起動することで、ローカルネットワーク内の他のPCからアクセス可能にする
     app.run(host='0.0.0.0', port=5000, debug=True)
